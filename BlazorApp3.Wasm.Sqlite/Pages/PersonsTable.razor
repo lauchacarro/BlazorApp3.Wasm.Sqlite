@@ -1,0 +1,121 @@
+﻿@page "/persons"
+@using Microsoft.EntityFrameworkCore
+@inject DataSynchronizer DataSynchronizer
+@implements IDisposable
+
+<PageTitle>Person Table</PageTitle>
+
+<h1>Person Table</h1>
+
+<p>Person Table Sqlite</p>
+
+<SyncStatus />
+
+@if (db == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+
+    <InputTextArea @bind-Value="query" />
+    <button @onclick="Refresh">Execute</button>
+
+    @if (dataReaderTable)
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    @foreach (var column in columns)
+                    {
+                        <th>@column</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in rows)
+                {
+                    <tr>
+                        @foreach (var field in row)
+                        {
+                            <td>@field</td>
+                        }
+
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    
+}
+
+@code {
+
+    ClientSideDbContext? db;
+    List<Person> people = new List<Person>();
+
+    string query = "SELECT * FROM Persons";
+
+
+    bool dataReaderTable = false;
+
+    List<string> columns = new();
+    List<string[]> rows = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        db = await DataSynchronizer.GetPreparedDbContextAsync();
+        DataSynchronizer.OnUpdate += StateHasChanged;
+
+    }
+
+
+    public void Dispose()
+    {
+        db?.Dispose();
+        DataSynchronizer.OnUpdate -= StateHasChanged;
+    }
+
+
+    public void Refresh()
+    {
+
+        var connection = db!.Database.GetDbConnection();
+        connection.Open();
+
+        var command = connection.CreateCommand();
+
+        command.CommandText = query;
+
+        System.Data.Common.DbDataReader reader = command.ExecuteReader();
+
+
+        columns = Enumerable.Range(0, reader.FieldCount)
+                        .Select(reader.GetName)
+                        .ToList();
+
+        rows = new();
+
+        while (reader.Read())
+        {
+            List<string> row = new();
+
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                string myreader = reader.GetString(i);
+                Console.WriteLine(myreader);
+                row.Add(myreader);
+            }
+
+            rows.Add(row.ToArray());
+
+        }
+
+        dataReaderTable = true;
+    }
+
+
+}
